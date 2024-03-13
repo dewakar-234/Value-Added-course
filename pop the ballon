@@ -1,0 +1,188 @@
+
+import 'dart:async';
+import 'dart:math';
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(BalloonGame());
+}
+
+class BalloonGame extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Balloon Popping Game',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: GameScreen(),
+    );
+  }
+}
+
+class GameScreen extends StatefulWidget {
+  @override
+  _GameScreenState createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  int score = 0;
+  int missed = 0;
+  Timer? timer;
+  Duration duration = Duration(minutes: 2);
+  List<Balloon> balloons = [];
+
+  @override
+  void initState() {
+    super.initState();
+    startGame();
+  }
+
+  void startGame() {
+    timer = Timer.periodic(Duration(seconds: 1), (Timer t) {
+      if (duration.inSeconds == 0) {
+        t.cancel();
+        showEndScreen();
+      } else {
+        setState(() {
+          duration -= Duration(seconds: 1);
+        });
+      }
+    });
+
+    Timer.periodic(Duration(seconds: 2), (Timer t) {
+      balloons.add(Balloon(
+        onPopped: () {
+          setState(() {
+            score += 2;
+          });
+        },
+        onMissed: () {
+          setState(() {
+            missed++;
+          });
+        },
+      ));
+      if (mounted) setState(() {});
+    });
+  }
+
+  void showEndScreen() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Game Over"),
+          content: Text("Score: $score\nBalloons Missed: $missed"),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                resetGame();
+              },
+              child: Text("Play Again"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void resetGame() {
+    setState(() {
+      score = 0;
+      missed = 0;
+      duration = Duration(minutes: 2);
+      balloons.clear();
+    });
+    startGame();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Balloon Popping Game"),
+      ),
+      body: Stack(
+        children: <Widget>[
+          Center(
+            child: Text(
+              duration.toString().split('.').first.padLeft(8, "0"),
+              style: TextStyle(fontSize: 48),
+            ),
+          ),
+          Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Text(
+                  "Score: $score",
+                  style: TextStyle(fontSize: 24, color: Colors.green),
+                ),
+                SizedBox(width: 20),
+                Text(
+                  "Missed: $missed",
+                  style: TextStyle(fontSize: 24, color: Colors.red),
+                ),
+              ],
+            ),
+          ),
+          for (var balloon in balloons)
+            Positioned(
+              top: balloon.top,
+              left: balloon.left,
+              child: GestureDetector(
+                onTap: () {
+                  balloon.pop();
+                },
+                child: balloon.widget,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    timer.cancel();
+    super.dispose();
+  }
+}
+
+class Balloon {
+  final double left;
+  double top = 600;
+  final Function onPopped;
+  final Function onMissed;
+  final Widget widget;
+
+  Balloon({this.onPopped, this.onMissed})
+      : left = Random().nextInt(400).toDouble(),
+        widget = Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.red,
+            shape: BoxShape.circle,
+          ),
+        ) {
+    move();
+  }
+
+  void move() {
+    Future.delayed(Duration(milliseconds: 100), () {
+      top -= 10;
+      if (top > 0) {
+        move();
+      } else {
+        onMissed();
+      }
+    });
+  }
+
+  void pop() {
+    onPopped();
+  }
+}
